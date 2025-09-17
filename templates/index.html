@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>File Manager</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <!-- Navbar -->
+  <div class="navbar">
+    <h1>My File Manager</h1>
+    <div class="nav-links">
+      <a href="{{ url_for('index') }}">Home</a>
+      <a href="#upload">Uploads</a>
+      <a href="#files">Files</a>
+      <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+    </div>
+  </div>
+
+  <!-- Main container -->
+  <div class="container files-container">
+    <h2 id="upload">Upload File</h2>
+    <input type="file" id="fileInput" required>
+    <button onclick="uploadFile()">Upload</button>
+
+    <!-- Upload progress bar -->
+    <div class="progress-container">
+      <div id="uploadProgress" class="progress-bar">0%</div>
+    </div>
+
+    <h2 id="files">Available Files</h2>
+    <ul>
+      {% for file in files %}
+        <li>
+          <span>{{ file }}</span>
+          <a href="javascript:void(0);" onclick="downloadFile('{{ url_for('download_file', filename=file) }}')">
+            <button>Download</button>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+
+    <!-- Download progress bar -->
+    <div class="progress-container">
+      <div id="downloadProgress" class="progress-bar">0%</div>
+    </div>
+  </div>
+
+  <script>
+    // ---- Chunked Upload ----
+    async function uploadFile() {
+      const file = document.getElementById("fileInput").files[0];
+      if (!file) return;
+
+      const chunkSize = 1024 * 1024 * 2; // 2MB
+      const totalChunks = Math.ceil(file.size / chunkSize);
+
+      for (let i = 0; i < totalChunks; i++) {
+        const chunk = file.slice(i * chunkSize, (i + 1) * chunkSize);
+        const formData = new FormData();
+        formData.append("file", chunk);
+        formData.append("chunkIndex", i);
+        formData.append("totalChunks", totalChunks);
+        formData.append("filename", file.name);
+
+        await fetch("/upload_chunk", { method: "POST", body: formData });
+
+        const percent = Math.floor(((i + 1) / totalChunks) * 100);
+        const bar = document.getElementById("uploadProgress");
+        bar.style.width = percent + "%";
+        bar.textContent = percent + "%";
+      }
+
+      alert("Upload complete!");
+      location.reload();
+    }
+
+    // ---- Download Progress ----
+    function downloadFile(url) {
+      let xhr = new XMLHttpRequest();
+      xhr.open("GET", url, true);
+      xhr.responseType = "blob";
+
+      xhr.addEventListener("progress", function (e) {
+        if (e.lengthComputable) {
+          let percent = Math.round((e.loaded / e.total) * 100);
+          let bar = document.getElementById("downloadProgress");
+          bar.style.width = percent + "%";
+          bar.textContent = percent + "%";
+        }
+      });
+
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          let blob = xhr.response;
+          let link = document.createElement("a");
+          link.href = window.URL.createObjectURL(blob);
+
+          let filename = "downloaded.file";
+          let dispo = xhr.getResponseHeader("Content-Disposition");
+          if (dispo && dispo.indexOf("filename=") !== -1) {
+            filename = dispo.split("filename=")[1].trim();
+          }
+          link.download = filename;
+          link.click();
+
+          // Reset bar
+          let bar = document.getElementById("downloadProgress");
+          bar.style.width = "0%";
+          bar.textContent = "0%";
+        }
+      };
+
+      xhr.send();
+    }
+  </script>
+</body>
+</html>
