@@ -40,7 +40,7 @@ Or, to share files with others on your network, click on your **IP address** lin
 
 To access the app on your network, open your browser and go to:
 
-http://[your-local-IP]:5000
+http://(your-local-IP):5000
 
 ---
 
