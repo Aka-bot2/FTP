@@ -8,6 +8,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.secret_key = "supersecretkey"  # change this!
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB
+
 
 # Simple credentials
 USERNAME = "akashh"
@@ -32,43 +34,19 @@ def index():
     files = os.listdir(app.config["UPLOAD_FOLDER"])
     return render_template("index.html", files=files)
 
-# ---- NEW CHUNKED UPLOAD ----
-@app.route("/upload_chunk", methods=["POST"])
-def upload_chunk():
+# ---- SIMPLE UPLOAD (no chunking) ----
+@app.route("/upload", methods=["POST"])
+def upload_file():
     if not session.get("logged_in"):
         return redirect(url_for("login"))
-
+    if "file" not in request.files:
+        return redirect(url_for("index"))
     file = request.files["file"]
-    chunk_index = int(request.form["chunkIndex"])
-    total_chunks = int(request.form["totalChunks"])
-    filename = request.form["filename"]
-
-    temp_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{filename}.part")
-
-    # Append chunk to temp file
-    with open(temp_path, "ab") as f:
-        f.write(file.read())
-
-    # If last chunk → rename to final file
-    if chunk_index + 1 == total_chunks:
-        final_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        os.rename(temp_path, final_path)
-
-    return "OK"
-
-# ---- OLD UPLOAD DISABLED ----
-# @app.route("/upload", methods=["POST"])
-# def upload_file():
-#     if not session.get("logged_in"):
-#         return redirect(url_for("login"))
-#     if "file" not in request.files:
-#         return redirect(url_for("index"))
-#     file = request.files["file"]
-#     if file.filename == "":
-#         return redirect(url_for("index"))
-#     filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
-#     file.save(filepath)
-#     return redirect(url_for("index"))
+    if file.filename == "":
+        return redirect(url_for("index"))
+    filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
+    file.save(filepath)
+    return redirect(url_for("index"))
 
 @app.route("/download/<path:filename>")
 def download_file(filename):

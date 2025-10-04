@@ -7,7 +7,7 @@
 <body>
   <!-- Navbar -->
   <div class="navbar">
-    <h1>My File Manager</h1>
+    <h1>Filo</h1>
     <div class="nav-links">
       <a href="{{ url_for('index') }}">Home</a>
       <a href="#upload">Uploads</a>
@@ -19,10 +19,12 @@
   <!-- Main container -->
   <div class="container files-container">
     <h2 id="upload">Upload File</h2>
-    <input type="file" id="fileInput" required>
-    <button onclick="uploadFile()">Upload</button>
+    <form id="uploadForm" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+      <input type="file" name="file" required>
+      <button type="submit">Upload</button>
+    </form>
 
-    <!-- Upload progress bar -->
+    <!-- Upload Progress -->
     <div class="progress-container">
       <div id="uploadProgress" class="progress-bar">0%</div>
     </div>
@@ -32,49 +34,48 @@
       {% for file in files %}
         <li>
           <span>{{ file }}</span>
-          <a href="javascript:void(0);" onclick="downloadFile('{{ url_for('download_file', filename=file) }}')">
-            <button>Download</button>
+          <a href="{{ url_for('download_file', filename=file) }}">
+            <button type="button">Download</button>
           </a>
         </li>
       {% endfor %}
     </ul>
 
-    <!-- Download progress bar -->
+    <!-- Download Progress -->
     <div class="progress-container">
       <div id="downloadProgress" class="progress-bar">0%</div>
     </div>
   </div>
 
   <script>
-    // ---- Chunked Upload ----
-    async function uploadFile() {
-      const file = document.getElementById("fileInput").files[0];
-      if (!file) return;
+    // Upload progress (single file upload, no chunking)
+    document.getElementById("uploadForm").addEventListener("submit", function (e) {
+      e.preventDefault();
 
-      const chunkSize = 1024 * 1024 * 2; // 2MB
-      const totalChunks = Math.ceil(file.size / chunkSize);
+      let formData = new FormData(this);
+      let xhr = new XMLHttpRequest();
 
-      for (let i = 0; i < totalChunks; i++) {
-        const chunk = file.slice(i * chunkSize, (i + 1) * chunkSize);
-        const formData = new FormData();
-        formData.append("file", chunk);
-        formData.append("chunkIndex", i);
-        formData.append("totalChunks", totalChunks);
-        formData.append("filename", file.name);
+      xhr.open("POST", "{{ url_for('upload_file') }}", true);
 
-        await fetch("/upload_chunk", { method: "POST", body: formData });
+      xhr.upload.addEventListener("progress", function (e) {
+        if (e.lengthComputable) {
+          let percent = Math.round((e.loaded / e.total) * 100);
+          let bar = document.getElementById("uploadProgress");
+          bar.style.width = percent + "%";
+          bar.textContent = percent + "%";
+        }
+      });
 
-        const percent = Math.floor(((i + 1) / totalChunks) * 100);
-        const bar = document.getElementById("uploadProgress");
-        bar.style.width = percent + "%";
-        bar.textContent = percent + "%";
-      }
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          window.location.reload();
+        }
+      };
 
-      alert("Upload complete!");
-      location.reload();
-    }
+      xhr.send(formData);
+    });
 
-    // ---- Download Progress ----
+    // Download progress
     function downloadFile(url) {
       let xhr = new XMLHttpRequest();
       xhr.open("GET", url, true);
@@ -95,6 +96,7 @@
           let link = document.createElement("a");
           link.href = window.URL.createObjectURL(blob);
 
+          // Try to get filename from headers
           let filename = "downloaded.file";
           let dispo = xhr.getResponseHeader("Content-Disposition");
           if (dispo && dispo.indexOf("filename=") !== -1) {
