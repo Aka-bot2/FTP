@@ -39,8 +39,8 @@ Download files directly from the file list
 ---
 
 Future Plans:
-Add progress bar for uploads
-Resume interrupted transfers
+- Add progress bar for uploads
+- Resume interrupted transfers
 
 ---
 👨‍💻 Author
