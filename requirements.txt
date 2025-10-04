@@ -1,5 +1,1 @@
 Flask==2.3.6
-Werkzeug==2.3.6
-# Optional packages if used:
-# Flask-Uploads==0.2.1
-# python-dotenv==1.1.1
